@@ -27,7 +27,10 @@
         .font-serif-title { font-family: 'Prata', serif; }
         #count-display { transition: transform 0.15s cubic-bezier(0.175,0.885,0.32,1.275); display:inline-block; will-change:transform; }
         .log-btn { box-shadow: 0 15px 35px -5px rgba(0,0,0,0.4); transition: transform .1s, background-color .1s; cursor:pointer; }
-        .video-wrapper { position:relative; width:100%; height:100%; background:#000; overflow:hidden; border-radius:12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -1px rgba(0,0,0,.06); }
+        .video-wrapper { position:relative; width:100%; height:100%; background:#000; overflow:hidden; border-radius:12px; box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -1px rgba(0,0,0,.06); }
+        /* small UI for device-id export/import */
+        .device-id-ui { position: fixed; left: 12px; bottom: 12px; background: rgba(255,255,255,.9); border-radius: 8px; padding: 8px; z-index: 60; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.06); }
+        .device-id-ui button { margin-left: 6px; font-weight:600; padding:4px 8px; border-radius:6px; cursor:pointer; }
     </style>
 </head>
 <body class="bg-stone-100">
@@ -49,7 +52,7 @@
 
     <div class="flex-1 w-full flex items-center justify-center py-2 min-h-0 z-0">
         <div class="video-wrapper aspect-square max-h-full">
-            <!-- LAZY video: sources are in data-src attributes; not attached until interaction/attempt -->
+            <!-- Video: poster set to uploaded image (local path from upload). Sources lazy-attached, not downloaded until play attempt -->
             <video
                 id="hair-video"
                 class="w-full h-full object-cover"
@@ -58,17 +61,13 @@
                 muted
                 playsinline
                 webkit-playsinline
-                preload="metadata"                  <!-- only fetch metadata by default -->
-                data-src-mp4="IMG_9318.mp4"         <!-- put your mp4 here (preferred) -->
-                data-src-quicktime="IMG_9318.mp4"   <!-- fallback if you insist on .mov -->
-                poster=""                            <!-- small poster if you have one -->
+                preload="metadata"
+                poster="/mnt/data/61ED4418-8ABF-48D3-B6D1-A5D9856932A4.jpeg"
+                data-src-mp4="IMG_9318.mp4"
                 aria-label="Live feed video"
             ></video>
 
-            <!-- Fallback static image (shows if autoplay blocked or video error) -->
-            <img id="video-fallback" src="https://media.giphy.com/media/l0HlO3BJ8LALPW4sE/giphy.gif" alt="" aria-hidden="true"
-                 class="absolute inset-0 w-full h-full object-cover grayscale opacity-50" style="display:none;">
-
+            <!-- Live badge -->
             <div class="absolute top-4 left-4 flex gap-2 items-center bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
                 <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                 <span class="text-[10px] text-white font-bold tracking-wider uppercase">Live Feed</span>
@@ -101,9 +100,18 @@
     </div>
 </div>
 
+<!-- small device-id export/import UI so you can link browsers manually (no secret tracking) -->
+<div class="device-id-ui" id="device-ui" title="Use this to copy/import device ID if you want cross-browser sync">
+    <div style="display:flex;align-items:center;gap:6px;">
+        <span id="device-id-display">id: —</span>
+        <button id="copy-device">copy</button>
+        <button id="import-device">import</button>
+    </div>
+</div>
+
 <script type="module">
 (async () => {
-    // FIREBASE: stays optional; code unchanged for safety
+    // === CONFIG GUARDS ===
     let firebaseEnabled = false;
     let firebaseConfig = null;
     try {
@@ -111,55 +119,55 @@
             firebaseConfig = (typeof __firebase_config === 'string') ? JSON.parse(__firebase_config) : __firebase_config;
             firebaseEnabled = true;
         }
-    } catch (err) {
-        console.warn('[app] firebase parse failed', err);
-        firebaseEnabled = false;
-    }
+    } catch(e){ console.warn('[app] firebase parse fail', e); firebaseEnabled = false; }
 
-    // Lazy import only if needed later
-    let db = null;
-
-    // DOM
+    // === DOM ===
     const countEl = document.getElementById('count-display');
     const btn = document.getElementById('log-btn');
     const modal = document.getElementById('stalker-modal');
     const modalCloseBtn = document.getElementById('modal-close');
     const lastSeenEl = document.getElementById('last-seen-timer');
     const videoEl = document.getElementById('hair-video');
-    const videoFallback = document.getElementById('video-fallback');
+    const deviceIdDisplay = document.getElementById('device-id-display');
+    const copyBtn = document.getElementById('copy-device');
+    const importBtn = document.getElementById('import-device');
 
+    // === CONSTANTS ===
     const STALKER_THRESHOLD = 3;
     const TIME_WINDOW = 2 * 60 * 1000;
     const STORAGE_KEY = 'devang_hair_events';
     const LAST_CLICK_KEY = 'devang_last_click_ts';
+    const LOCAL_COUNT_KEY = 'devang_local_count';
+    const DEVICE_ID_KEY = 'devang_device_id';
     const appId = (typeof __app_id !== 'undefined' && __app_id) ? __app_id : 'default-app-id';
 
+    // === STATE ===
     let timeInterval = null;
-    let lazyLoaded = false; // whether we attached sources to <video>
+    let lazyLoaded = false;
+    let firebaseDb = null;
 
-    // update display helper
+    // === Helpers ===
     function updateDisplay(val) {
         if (!countEl) return;
         try {
             countEl.style.transform = 'scale(1.2)';
             countEl.style.color = '#000';
-            setTimeout(() => countEl.style.transform = 'scale(1)', 150);
+            setTimeout(()=> countEl.style.transform = 'scale(1)', 150);
             countEl.innerText = (typeof val === 'number') ? val.toLocaleString('en-US', { minimumIntegerDigits: 2 }) : String(val);
-        } catch (e) { /* ignore */ }
+        } catch(e){}
     }
 
-    // timer
     function startTimeTicker() {
         if (timeInterval) clearInterval(timeInterval);
-        timeInterval = setInterval(() => {
+        timeInterval = setInterval(()=> {
             try {
                 const lastTs = localStorage.getItem(LAST_CLICK_KEY);
                 if (!lastTs) { if (lastSeenEl) lastSeenEl.innerText = "Waiting for input..."; return; }
-                const diff = Math.floor((Date.now() - parseInt(lastTs, 10)) / 1000);
+                const diff = Math.floor((Date.now() - parseInt(lastTs,10)) / 1000);
                 if (diff < 5) lastSeenEl.innerText = "Just now";
                 else if (diff < 60) lastSeenEl.innerText = `${diff}s ago`;
                 else lastSeenEl.innerText = `${Math.floor(diff/60)}m ago`;
-            } catch (err) {}
+            } catch(e){}
         }, 1000);
     }
 
@@ -171,187 +179,188 @@
             history.push(now);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
             if (history.length > STALKER_THRESHOLD) { localStorage.setItem(STORAGE_KEY, '[]'); return true; }
-        } catch (err) { console.warn(err); }
+        } catch(e){ console.warn(e); }
         return false;
     }
 
-    function showModal() { if (!modal) return; modal.classList.remove('hidden'); modal.classList.add('flex'); }
-    function closeModal(e) { if (e && e.cancelable) e.preventDefault(); if (!modal) return; modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    function showModal(){ if(!modal) return; modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    function closeModal(e){ if(e && e.cancelable) e.preventDefault(); if(!modal) return; modal.classList.add('hidden'); modal.classList.remove('flex'); }
 
-    // LAZY VIDEO LOADING: attach sources only when we try to play
+    // === Device ID (not secret tracking): generate or show. user can copy & paste to link browsers manually ===
+    function generateDeviceId() {
+        // simple UUIDv4
+        return 'dev-' + ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        );
+    }
+    function getDeviceId() {
+        let id = localStorage.getItem(DEVICE_ID_KEY);
+        if (!id) { id = generateDeviceId(); localStorage.setItem(DEVICE_ID_KEY, id); }
+        deviceIdDisplay.innerText = 'id: ' + id.slice(0,12);
+        return id;
+    }
+
+    copyBtn.addEventListener('click', async () => {
+        const id = getDeviceId();
+        try { await navigator.clipboard.writeText(id); alert('device id copied'); } catch(e) { prompt('copy this device id', id); }
+    });
+
+    importBtn.addEventListener('click', async () => {
+        const val = prompt('Paste device id to import (will overwrite current device id)');
+        if (!val) return;
+        try { localStorage.setItem(DEVICE_ID_KEY, val); alert('imported. refresh other tabs to sync'); getDeviceId(); } catch(e){ alert('import failed'); }
+    });
+
+    // === Video lazy load & play ===
     function attachVideoSources() {
         if (!videoEl || lazyLoaded) return;
-        // prefer mp4; update these file names to match your actual files on Vercel
         const mp4 = videoEl.getAttribute('data-src-mp4');
-        const qt = videoEl.getAttribute('data-src-quicktime');
-
-        // Create source elements only when present
         if (mp4) {
             const s = document.createElement('source');
             s.src = mp4;
             s.type = 'video/mp4';
             videoEl.appendChild(s);
         }
-        if (qt && !mp4) { // only add quicktime if mp4 absent
-            const s2 = document.createElement('source');
-            s2.src = qt;
-            s2.type = 'video/quicktime';
-            videoEl.appendChild(s2);
-        }
-        // Ensure browser updates
-        try { videoEl.load(); } catch (e) {}
+        try { videoEl.load(); } catch(e){}
         lazyLoaded = true;
     }
 
-    // Attempt to play the video. If autoplay blocked, show fallback and wait for user interaction.
     async function attemptPlayVideo() {
         if (!videoEl) return false;
-        // if not attached, attach now
         if (!lazyLoaded) attachVideoSources();
-
         try {
-            // small optimization: set muted true before play to increase autoplay success
             videoEl.muted = true;
             await videoEl.play();
-            if (videoFallback) videoFallback.style.display = 'none';
             return true;
-        } catch (err) {
-            // autoplay blocked
-            if (videoFallback) videoFallback.style.display = '';
+        } catch(e) {
             return false;
         }
     }
 
-    // Called on user touch/click to lazy-load and play
-    async function onFirstUserInteraction() {
-        // remove this handler after first call
+    function onFirstUserInteraction() {
         document.removeEventListener('touchstart', onFirstUserInteraction);
         document.removeEventListener('click', onFirstUserInteraction);
         attachVideoSources();
-        try { await videoEl.play(); if (videoFallback) videoFallback.style.display = 'none'; } catch(e){ if (videoFallback) videoFallback.style.display = ''; }
+        videoEl.play().catch(()=>{});
     }
 
-    // handle log button
+    // === Logging action ===
     async function handleLog(e) {
         if (e && e.cancelable) e.preventDefault();
         if (btn) { btn.classList.add('scale-90','bg-stone-800'); setTimeout(()=>btn.classList.remove('scale-90','bg-stone-800'),100); }
-        try { localStorage.setItem(LAST_CLICK_KEY, Date.now().toString()); if (lastSeenEl) { lastSeenEl.innerText = "Just now"; lastSeenEl.classList.add('text-red-600','font-bold'); setTimeout(()=>lastSeenEl.classList.remove('text-red-600','font-bold'),500); } } catch(e){}
+        try { localStorage.setItem(LAST_CLICK_KEY, Date.now().toString()); if(lastSeenEl){ lastSeenEl.innerText='Just now'; lastSeenEl.classList.add('text-red-600','font-bold'); setTimeout(()=> lastSeenEl.classList.remove('text-red-600','font-bold'),500);} } catch(e){}
         if (isStalking()) showModal();
 
-        // update UI optimistically
+        // optimistic local increment
         try {
-            let curr = 0;
-            if (countEl && countEl.innerText && !isNaN(Number(countEl.innerText.replace(/,/g,'')))) curr = Number(countEl.innerText.replace(/,/g,''));
-            updateDisplay(curr + 1);
+            let curr = Number(localStorage.getItem(LOCAL_COUNT_KEY) || 0);
+            curr = curr + 1;
+            localStorage.setItem(LOCAL_COUNT_KEY, String(curr));
+            updateDisplay(curr);
         } catch(e){}
 
-        // Firebase update left as before — omitted here unless configured (keeps startup light)
+        // If firebase is configured we try to push the update to server for cross-browser sync
         if (firebaseEnabled) {
             try {
-                const modFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
-                const { doc, updateDoc, setDoc, increment, getFirestore } = modFirestore;
-                const appMod = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
-                const app = appMod.initializeApp(firebaseConfig);
-                const remoteDb = getFirestore(app);
+                const modFire = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+                const modApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
+                const app = modApp.initializeApp(firebaseConfig);
+                const remoteDb = modFire.getFirestore(app);
+                const { doc, updateDoc, setDoc, increment } = modFire;
                 const docRef = doc(remoteDb, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
                 try {
                     await updateDoc(docRef, { count: increment(1), lastTimestamp: Date.now() });
-                } catch (err) {
+                } catch(err) {
                     await setDoc(docRef, { count: 1, lastTimestamp: Date.now() }, { merge: true });
                 }
-            } catch (err) {
-                console.warn('[app] Firestore update failed', err);
+            } catch(err) {
+                console.warn('[app] firebase update failed', err);
             }
-        } else {
-            // local fallback accumulator
-            try { let localCount = Number(localStorage.getItem('devang_local_count')||0); localCount++; localStorage.setItem('devang_local_count', String(localCount)); } catch(e){}
         }
     }
 
-    // Bind listeners safely
+    // === Bind listeners ===
     function bindListeners() {
         if (btn) {
             btn.addEventListener('touchstart', handleLog, { passive:false });
             btn.addEventListener('click', handleLog);
         }
         if (modalCloseBtn) {
-            modalCloseBtn.addEventListener('touchstart', (e)=>{ if (e&&e.cancelable) e.preventDefault(); closeModal(e); }, { passive:false });
+            modalCloseBtn.addEventListener('touchstart', closeModal, { passive:false });
             modalCloseBtn.addEventListener('click', closeModal);
         }
     }
 
-    // Ensure video behavior (lazy play on try, and fall back to user-interaction)
-    async function ensureVideoBehavior() {
-        // try to autoplay (will usually fail on mobile) — but this won't download full file if preload=metadata and sources not attached
-        const autoplaySucceeded = await attemptPlayVideo();
-        if (autoplaySucceeded) return;
-        // if autoplay failed, listen for first user interaction to attach and play the video
-        document.addEventListener('touchstart', onFirstUserInteraction, { once: true });
-        document.addEventListener('click', onFirstUserInteraction, { once: true });
-        // Also show fallback immediately if sources can't be loaded
-        if (videoFallback) videoFallback.style.display = '';
-        // And add error handler to show fallback if file corrupted/unsupported
-        if (videoEl) videoEl.addEventListener('error', () => { if (videoFallback) videoFallback.style.display = ''; });
-    }
-
-    // init
+    // === Hydrate from local ===
     function hydrateFromLocal() {
         try {
-            const localCount = Number(localStorage.getItem('devang_local_count') || 0);
+            const localCount = Number(localStorage.getItem(LOCAL_COUNT_KEY) || 0);
             if (localCount > 0) updateDisplay(localCount);
         } catch(e){}
     }
 
-    async function init() {
-        startTimeTicker();
-        bindListeners();
-        hydrateFromLocal();
-        await ensureVideoBehavior();
+    // === Optional: Firebase real-time snapshot (only if config present) ===
+    async function setupFirebaseRealtime() {
+        if (!firebaseEnabled) return;
+        try {
+            const modApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
+            const modAuth = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+            const modFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
 
-        // Optionally init Firebase listeners later only if config present
-        if (firebaseEnabled) {
-            try {
-                const modApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
-                const modAuth = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
-                const modFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+            const app = modApp.initializeApp(firebaseConfig);
+            const auth = modAuth.getAuth(app);
+            const { signInAnonymously, onAuthStateChanged } = modAuth;
+            const { doc, onSnapshot, setDoc, getFirestore } = modFirestore;
+            const remoteDb = getFirestore(app);
 
-                const app = modApp.initializeApp(firebaseConfig);
-                const authLocal = modAuth.getAuth(app);
-                const { signInAnonymously, onAuthStateChanged, signInWithCustomToken } = modAuth;
-                const { doc, onSnapshot, setDoc, getFirestore } = modFirestore;
-                const remoteDb = getFirestore(app);
+            try { await signInAnonymously(auth); } catch(e){ console.warn('[app] firebase auth', e); }
 
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(authLocal, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(authLocal);
-                    }
-                } catch(e) { console.warn('[app] firebase auth failed', e); }
-
-                onAuthStateChanged(authLocal, (user) => {
-                    if (user) {
-                        try {
-                            const docRef = doc(remoteDb, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
-                            onSnapshot(docRef, (snap) => {
-                                if (snap && snap.exists && snap.exists()) {
-                                    const data = snap.data();
-                                    updateDisplay(data.count || 0);
-                                } else {
-                                    setDoc(docRef, { count: 0, lastTimestamp: Date.now() }).catch(()=>{});
-                                    updateDisplay(0);
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    try {
+                        const docRef = doc(remoteDb, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
+                        onSnapshot(docRef, (snap) => {
+                            if (snap && snap.exists && snap.exists()) {
+                                const d = snap.data();
+                                if (typeof d.count === 'number') {
+                                    // update UI and also persist locally
+                                    updateDisplay(d.count || 0);
+                                    localStorage.setItem(LOCAL_COUNT_KEY, String(d.count || 0));
                                 }
-                            });
-                        } catch(err) { console.warn('[app] snapshot error', err); }
-                    }
-                });
-            } catch(err) {
-                console.warn('[app] firebase late-init failed', err);
-            }
+                            } else {
+                                setDoc(docRef, { count: 0, lastTimestamp: Date.now() }).catch(()=>{});
+                                updateDisplay(0);
+                            }
+                        });
+                    } catch(err){ console.warn('[app] firebase snapshot', err); }
+                }
+            });
+
+        } catch(err) {
+            console.warn('[app] firebase setup failed', err);
         }
     }
 
-    try { await init(); } catch(err){ console.error('[app] init crash', err); }
+    // === Init ===
+    try {
+        getDeviceId();
+        startTimeTicker();
+        bindListeners();
+        hydrateFromLocal();
+
+        // Try autoplay lightly - won't fetch big file until sources attached
+        const played = await attemptPlayVideo();
+        if (!played) {
+            // wait for first user interaction to attach and play
+            document.addEventListener('touchstart', onFirstUserInteraction, { once: true });
+            document.addEventListener('click', onFirstUserInteraction, { once: true });
+        }
+
+        // If firebase config present, set up realtime
+        if (firebaseEnabled) await setupFirebaseRealtime();
+    } catch (err) {
+        console.error('[app] init error', err);
+    }
 })();
 </script>
 
