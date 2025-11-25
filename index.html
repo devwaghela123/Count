@@ -1,198 +1,17 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Devang Hair Study</title>
-    
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Fonts: 'Prata' for headlines, 'Inter' for UI -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Prata&display=swap" rel="stylesheet">
-
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- Firebase Config ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        // --- Configuration ---
-        const STALKER_THRESHOLD = 3; 
-        const TIME_WINDOW = 2 * 60 * 1000;
-        const STORAGE_KEY = 'devang_hair_events';
-        const LAST_CLICK_KEY = 'devang_last_click_ts';
-
-        // --- UI Elements ---
-        const countEl = document.getElementById('count-display');
-        const btn = document.getElementById('log-btn');
-        const modal = document.getElementById('stalker-modal');
-        const modalCloseBtn = document.getElementById('modal-close');
-        const lastSeenEl = document.getElementById('last-seen-timer');
-        const videoEl = document.getElementById('hair-video');
-        let currentUser = null;
-        let timeInterval;
-
-        // --- Auth & Sync ---
-        async function init() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (e) { console.error(e); }
-
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUser = user;
-                    setupListener();
-                }
-            });
-
-            // Start the local "time since" ticker
-            startTimeTicker();
-            
-            // Force video play on low power mode devices
-            ensureVideoPlays();
-        }
-
-        function ensureVideoPlays() {
-            const attemptPlay = () => {
-                if(videoEl.paused) {
-                    videoEl.play().catch(e => console.log("Autoplay waiting for interaction"));
-                }
-            };
-            // Try immediately
-            attemptPlay();
-            // Try on first touch (safari requirement)
-            document.addEventListener('touchstart', function() {
-                attemptPlay();
-            }, { once: true });
-            document.addEventListener('click', function() {
-                attemptPlay();
-            }, { once: true });
-        }
-
-        function setupListener() {
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
-            onSnapshot(docRef, (snap) => {
-                if (snap.exists()) {
-                    const data = snap.data();
-                    updateDisplay(data.count || 0);
-                } else {
-                    setDoc(docRef, { count: 0, lastTimestamp: Date.now() });
-                    updateDisplay(0);
-                }
-            });
-        }
-
-        function updateDisplay(val) {
-            countEl.style.transform = 'scale(1.2)';
-            countEl.style.color = '#000';
-            setTimeout(() => {
-                countEl.style.transform = 'scale(1)';
-            }, 150);
-            countEl.innerText = val.toLocaleString('en-US', { minimumIntegerDigits: 2 });
-        }
-
-        // --- Timer Logic ---
-        function startTimeTicker() {
-            timeInterval = setInterval(() => {
-                const lastTs = localStorage.getItem(LAST_CLICK_KEY);
-                if (!lastTs) {
-                    lastSeenEl.innerText = "Waiting for input...";
-                    return;
-                }
-                
-                const diff = Math.floor((Date.now() - parseInt(lastTs)) / 1000);
-                
-                if (diff < 5) lastSeenEl.innerText = "Just now";
-                else if (diff < 60) lastSeenEl.innerText = `${diff}s ago`;
-                else {
-                    const mins = Math.floor(diff / 60);
-                    lastSeenEl.innerText = `${mins}m ago`;
-                }
-            }, 1000);
-        }
-
-        // --- Stalker Logic ---
-        function isStalking() {
-            const now = Date.now();
-            let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            history = history.filter(ts => now - ts < TIME_WINDOW);
-            history.push(now);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-
-            if (history.length > STALKER_THRESHOLD) {
-                localStorage.setItem(STORAGE_KEY, '[]');
-                return true;
-            }
-            return false;
-        }
-
-        // --- Actions ---
-        async function handleLog(e) {
-            // Prevent double firing on devices that support both touch and click
-            if (e && e.cancelable) e.preventDefault();
-            
-            if (!currentUser) return;
-
-            // Visual Feedback
-            btn.classList.add('scale-90', 'bg-stone-800');
-            setTimeout(() => btn.classList.remove('scale-90', 'bg-stone-800'), 100);
-
-            // Update Local Timestamp for the ticker
-            localStorage.setItem(LAST_CLICK_KEY, Date.now().toString());
-            lastSeenEl.innerText = "Just now";
-            lastSeenEl.classList.add('text-red-600', 'font-bold');
-            setTimeout(() => lastSeenEl.classList.remove('text-red-600', 'font-bold'), 500);
-
-            if (isStalking()) {
-                showModal();
-            }
-
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
-            try {
-                await updateDoc(docRef, { 
-                    count: increment(1),
-                    lastTimestamp: Date.now() 
-                });
-            } catch (e) {
-                await setDoc(docRef, { count: 1, lastTimestamp: Date.now() }, { merge: true });
-            }
-        }
-
-        function showModal() {
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
-
-        function closeModal(e) {
-             if (e && e.cancelable) e.preventDefault();
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-
-        // --- Event Listeners (Dual Support for Mobile/Desktop) ---
-        // Using { passive: false } is crucial for preventing scroll while tapping on iOS
-        btn.addEventListener('touchstart', handleLog, { passive: false });
-        btn.addEventListener('click', handleLog);
-
-        modalCloseBtn.addEventListener('touchstart', closeModal, { passive: false });
-        modalCloseBtn.addEventListener('click', closeModal);
-
-        init();
-    </script>
 
     <style>
         /* Disable standard mobile behaviors like zooming and selection to feel like an App */
@@ -227,7 +46,7 @@
             transition: transform 0.1s ease, background-color 0.1s;
             cursor: pointer;
         }
-        
+
         /* Video wrapper to ensure fit */
         .video-wrapper {
             position: relative;
@@ -242,96 +61,434 @@
 </head>
 <body class="bg-stone-100">
 
-    <!-- Card Container -->
-    <main class="w-full h-full bg-white relative flex flex-col p-6 pb-safe sm:max-w-md sm:mx-auto sm:h-[90vh] sm:rounded-3xl sm:shadow-2xl sm:border sm:border-stone-200 sm:my-auto">
-        
-        <!-- 1. Header Section -->
-        <div class="flex flex-col items-center justify-center mt-2 mb-2 flex-shrink-0 z-10">
-            <h1 class="font-serif-title text-3xl text-center text-stone-900 leading-tight mb-2">
-                I saw Devang setting his hair
-            </h1>
-            
-            <div class="flex flex-col items-center">
-                <div class="flex items-baseline gap-2">
-                    <span id="count-display" class="text-8xl font-thin tracking-tighter text-black leading-none select-none">
-                        --
-                    </span>
-                    <span class="text-lg font-medium text-stone-400">times.</span>
-                </div>
-                <!-- Dynamic Timer -->
-                <p class="text-xs text-stone-400 font-mono mt-1 uppercase tracking-widest">
-                    Last incident: <span id="last-seen-timer" class="transition-colors duration-300">Waiting...</span>
-                </p>
+<main class="w-full h-full bg-white relative flex flex-col p-6 pb-safe sm:max-w-md sm:mx-auto sm:h-[90vh] sm:rounded-3xl sm:shadow-2xl sm:border sm:border-stone-200 sm:my-auto">
+
+    <!-- 1. Header Section -->
+    <div class="flex flex-col items-center justify-center mt-2 mb-2 flex-shrink-0 z-10">
+        <h1 class="font-serif-title text-3xl text-center text-stone-900 leading-tight mb-2">
+            I saw Devang setting his hair
+        </h1>
+
+        <div class="flex flex-col items-center">
+            <div class="flex items-baseline gap-2">
+                <span id="count-display" class="text-8xl font-thin tracking-tighter text-black leading-none select-none">
+                    --
+                </span>
+                <span class="text-lg font-medium text-stone-400">times.</span>
             </div>
-        </div>
-
-        <!-- 2. Video Section (Flex to fill available space) -->
-        <div class="flex-1 w-full flex items-center justify-center py-2 min-h-0 z-0">
-            <div class="video-wrapper aspect-square max-h-full">
-                <!-- 
-                   VIDEO PATH SET HERE: IMG_9318.mov 
-                -->
-                <video 
-                    id="hair-video"
-                    class="w-full h-full object-cover" 
-                    autoplay 
-                    loop 
-                    muted 
-                    playsinline
-                    webkit-playsinline
-                    preload="auto"
-                >
-                    <source src="IMG_9318.mov" type="video/quicktime">
-                    <source src="IMG_9318.mov" type="video/mp4"> 
-                    <!-- Fallback to placeholder if local file missing during dev -->
-                    <img src="https://media.giphy.com/media/l0HlO3BJ8LALPW4sE/giphy.gif" class="w-full h-full object-cover grayscale opacity-50" />
-                </video>
-
-                <!-- "Live" Indicator -->
-                <div class="absolute top-4 left-4 flex gap-2 items-center bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
-                    <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    <span class="text-[10px] text-white font-bold tracking-wider uppercase">Live Feed</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- 3. Bottom Controls -->
-        <div class="flex flex-col items-center justify-end mb-4 flex-shrink-0 z-20 pb-4 sm:pb-0">
-            <!-- Hint Arrow -->
-            <div class="mb-3 animate-bounce text-stone-300">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                </svg>
-            </div>
-
-            <!-- The Big Button -->
-            <!-- pb-safe added via inline style for iOS home bar clearance -->
-            <button id="log-btn" class="log-btn w-24 h-24 bg-black rounded-full flex items-center justify-center text-white text-4xl active:scale-95">
-                <span class="pb-2 select-none">+</span>
-            </button>
-            
-            <div class="mt-4 text-[9px] text-stone-300 uppercase tracking-[0.3em] font-bold select-none">
-                Department of Vanity
-            </div>
-        </div>
-
-    </main>
-
-    <!-- Stalker Modal -->
-    <div id="stalker-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-white/95 backdrop-blur-md p-6 touch-none">
-        <div class="w-full max-w-xs text-center p-6 border-2 border-black bg-white shadow-xl">
-            <div class="text-6xl mb-4">ð§</div>
-            <h3 class="font-serif-title text-2xl text-black mb-3">
-                Looks like you're stalking Devang?
-            </h3>
-            <p class="text-xs font-mono text-stone-500 mb-6 leading-relaxed">
-                EXCESSIVE LOGGING DETECTED. PLEASE MAINTAIN PROFESSIONAL DISTANCE FROM THE SUBJECT.
+            <!-- Dynamic Timer -->
+            <p class="text-xs text-stone-400 font-mono mt-1 uppercase tracking-widest">
+                Last incident: <span id="last-seen-timer" class="transition-colors duration-300">Waiting...</span>
             </p>
-            <button id="modal-close" class="w-full py-4 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-colors">
-                I Understand
-            </button>
         </div>
     </div>
+
+    <!-- 2. Video Section (Flex to fill available space) -->
+    <div class="flex-1 w-full flex items-center justify-center py-2 min-h-0 z-0">
+        <div class="video-wrapper aspect-square max-h-full">
+            <!-- 
+               VIDEO PATH SET HERE: IMG_9318.mov 
+            -->
+            <video
+                id="hair-video"
+                class="w-full h-full object-cover"
+                autoplay
+                loop
+                muted
+                playsinline
+                webkit-playsinline
+                preload="auto"
+                poster=""
+            >
+                <source src="IMG_9318.mov" type="video/quicktime">
+                <source src="IMG_9318.mov" type="video/mp4">
+            </video>
+
+            <!-- Fallback static image (shows behind the video if video fails) -->
+            <img id="video-fallback" src="https://media.giphy.com/media/l0HlO3BJ8LALPW4sE/giphy.gif" alt="" aria-hidden="true"
+                 class="absolute inset-0 w-full h-full object-cover grayscale opacity-50" style="display:none;">
+
+            <!-- "Live" Indicator -->
+            <div class="absolute top-4 left-4 flex gap-2 items-center bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+                <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <span class="text-[10px] text-white font-bold tracking-wider uppercase">Live Feed</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Bottom Controls -->
+    <div class="flex flex-col items-center justify-end mb-4 flex-shrink-0 z-20 pb-4 sm:pb-0">
+        <!-- Hint Arrow -->
+        <div class="mb-3 animate-bounce text-stone-300">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+        </div>
+
+        <!-- The Big Button -->
+        <button id="log-btn" class="log-btn w-24 h-24 bg-black rounded-full flex items-center justify-center text-white text-4xl active:scale-95">
+            <span class="pb-2 select-none">+</span>
+        </button>
+
+        <div class="mt-4 text-[9px] text-stone-300 uppercase tracking-[0.3em] font-bold select-none">
+            Department of Vanity
+        </div>
+    </div>
+
+</main>
+
+<!-- Stalker Modal -->
+<div id="stalker-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-white/95 backdrop-blur-md p-6">
+    <div class="w-full max-w-xs text-center p-6 border-2 border-black bg-white shadow-xl">
+        <div class="text-6xl mb-4">🛑</div>
+        <h3 class="font-serif-title text-2xl text-black mb-3">
+            Looks like you're stalking Devang?
+        </h3>
+        <p class="text-xs font-mono text-stone-500 mb-6 leading-relaxed">
+            EXCESSIVE LOGGING DETECTED. PLEASE MAINTAIN PROFESSIONAL DISTANCE FROM THE SUBJECT.
+        </p>
+        <button id="modal-close" class="w-full py-4 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-colors">
+            I Understand
+        </button>
+    </div>
+</div>
+
+<!-- App script (placed at end so DOM exists) -->
+<script type="module">
+(async () => {
+    // ---- Config guards ----
+    let firebaseEnabled = false;
+    let firebaseConfig = null;
+    try {
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            // __firebase_config might be a JSON string or already an object (defensive)
+            firebaseConfig = (typeof __firebase_config === 'string') ? JSON.parse(__firebase_config) : __firebase_config;
+            firebaseEnabled = true;
+        } else {
+            console.warn('[app] __firebase_config missing — Firebase disabled for this runtime.');
+        }
+    } catch (err) {
+        console.error('[app] Error parsing __firebase_config — Firebase disabled.', err);
+        firebaseEnabled = false;
+    }
+
+    // Import Firebase only when config present to avoid module errors
+    let auth = null, db = null, initializeAppFn = null;
+    if (firebaseEnabled) {
+        try {
+            const modApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
+            const modAuth = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+            const modFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+
+            initializeAppFn = modApp.initializeApp;
+            auth = modAuth.getAuth ? modAuth.getAuth() : null;
+            db = modFirestore.getFirestore ? modFirestore.getFirestore(initializeAppFn(firebaseConfig)) : null;
+
+            // Note: We'll re-initialize auth properly in init() below using app
+        } catch (err) {
+            console.error('[app] Firebase modules failed to load — disabling Firebase.', err);
+            firebaseEnabled = false;
+            auth = null;
+            db = null;
+        }
+    }
+
+    // ---- DOM elements (safe: script is at end of body) ----
+    const countEl = document.getElementById('count-display');
+    const btn = document.getElementById('log-btn');
+    const modal = document.getElementById('stalker-modal');
+    const modalCloseBtn = document.getElementById('modal-close');
+    const lastSeenEl = document.getElementById('last-seen-timer');
+    const videoEl = document.getElementById('hair-video');
+    const videoFallback = document.getElementById('video-fallback');
+
+    // ---- Local constants ----
+    const STALKER_THRESHOLD = 3;
+    const TIME_WINDOW = 2 * 60 * 1000;
+    const STORAGE_KEY = 'devang_hair_events';
+    const LAST_CLICK_KEY = 'devang_last_click_ts';
+    const appId = (typeof __app_id !== 'undefined' && __app_id) ? __app_id : 'default-app-id';
+
+    let currentUser = null;
+    let timeInterval = null;
+    let firestoreDocRef = null;
+
+    // ---- Utility: safe update display ----
+    function updateDisplay(val) {
+        if (!countEl) return;
+        try {
+            countEl.style.transform = 'scale(1.2)';
+            countEl.style.color = '#000';
+            setTimeout(() => {
+                countEl.style.transform = 'scale(1)';
+            }, 150);
+            countEl.innerText = (typeof val === 'number') ? val.toLocaleString('en-US', { minimumIntegerDigits: 2 }) : String(val);
+        } catch (err) {
+            console.warn('[app] updateDisplay failed', err);
+        }
+    }
+
+    // ---- Timer ticker ----
+    function startTimeTicker() {
+        if (timeInterval) clearInterval(timeInterval);
+        timeInterval = setInterval(() => {
+            try {
+                const lastTs = localStorage.getItem(LAST_CLICK_KEY);
+                if (!lastTs) {
+                    if (lastSeenEl) lastSeenEl.innerText = "Waiting for input...";
+                    return;
+                }
+
+                const diff = Math.floor((Date.now() - parseInt(lastTs, 10)) / 1000);
+
+                if (diff < 5) lastSeenEl.innerText = "Just now";
+                else if (diff < 60) lastSeenEl.innerText = `${diff}s ago`;
+                else {
+                    const mins = Math.floor(diff / 60);
+                    lastSeenEl.innerText = `${mins}m ago`;
+                }
+            } catch (err) {
+                // silent
+            }
+        }, 1000);
+    }
+
+    // ---- Stalker logic ----
+    function isStalking() {
+        try {
+            const now = Date.now();
+            let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            history = history.filter(ts => now - ts < TIME_WINDOW);
+            history.push(now);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+
+            if (history.length > STALKER_THRESHOLD) {
+                localStorage.setItem(STORAGE_KEY, '[]');
+                return true;
+            }
+        } catch (err) {
+            console.warn('[app] isStalking error', err);
+        }
+        return false;
+    }
+
+    // ---- Modal control ----
+    function showModal() {
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    function closeModal(e) {
+        if (e && e.cancelable) e.preventDefault();
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // ---- Firestore path setup (if enabled) ----
+    function prepareFirestore() {
+        if (!firebaseEnabled) return null;
+        try {
+            // Re-import the specific named functions to avoid dependency issues
+            // Note: dynamic imports done earlier; attempt to use global firebase if present
+            // Use a defensive approach: attempt to construct a doc ref when db is available
+            if (db) {
+                // build path similar to original; keep same structure
+                // We'll create a lightweight object representing path usage — actual onSnapshot uses module functions
+                return {
+                    pathSegments: ['artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats']
+                };
+            }
+        } catch (err) {
+            console.warn('[app] prepareFirestore failed', err);
+        }
+        return null;
+    }
+
+    // ---- Safe logging action ----
+    async function handleLog(e) {
+        if (e && e.cancelable) e.preventDefault();
+
+        // Visual Feedback
+        if (btn) {
+            btn.classList.add('scale-90', 'bg-stone-800');
+            setTimeout(() => btn.classList.remove('scale-90', 'bg-stone-800'), 100);
+        }
+
+        // Update Local Timestamp for ticker
+        try {
+            localStorage.setItem(LAST_CLICK_KEY, Date.now().toString());
+            if (lastSeenEl) {
+                lastSeenEl.innerText = "Just now";
+                lastSeenEl.classList.add('text-red-600', 'font-bold');
+                setTimeout(() => lastSeenEl.classList.remove('text-red-600', 'font-bold'), 500);
+            }
+        } catch (err) { /* silent */ }
+
+        if (isStalking()) {
+            showModal();
+        }
+
+        // Local optimistic count increment (so UI feels responsive)
+        try {
+            // Try to parse the current displayed value to increment locally
+            let curr = 0;
+            if (countEl && countEl.innerText && !isNaN(Number(countEl.innerText.replace(/,/g, '')))) {
+                curr = Number(countEl.innerText.replace(/,/g, ''));
+            }
+            updateDisplay(curr + 1);
+        } catch (err) { /* ignore */ }
+
+        // If Firebase is enabled and db exists, attempt to update remote
+        if (firebaseEnabled && db) {
+            try {
+                // Use dynamic import to get updateDoc/increment/doc/setDoc functions
+                const modFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+                const { doc, updateDoc, setDoc, increment } = modFirestore;
+
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
+                try {
+                    await updateDoc(docRef, {
+                        count: increment(1),
+                        lastTimestamp: Date.now()
+                    });
+                } catch (e) {
+                    // If update fails (doc doesn't exist), try setDoc with merge
+                    await setDoc(docRef, { count: 1, lastTimestamp: Date.now() }, { merge: true });
+                }
+            } catch (err) {
+                console.warn('[app] Firestore update failed (continuing)', err);
+            }
+        } else {
+            // Firestore disabled — optionally persist locally as backup
+            try {
+                let localCount = Number(localStorage.getItem('devang_local_count') || 0);
+                localCount = localCount + 1;
+                localStorage.setItem('devang_local_count', String(localCount));
+            } catch (err) { /* ignore */ }
+        }
+    }
+
+    // ---- Setup listeners safely ----
+    function bindListeners() {
+        try {
+            if (btn) {
+                btn.addEventListener('touchstart', handleLog, { passive: false });
+                btn.addEventListener('click', handleLog);
+            }
+            if (modalCloseBtn) {
+                modalCloseBtn.addEventListener('touchstart', closeModal, { passive: false });
+                modalCloseBtn.addEventListener('click', closeModal);
+            }
+        } catch (err) {
+            console.warn('[app] bindListeners error', err);
+        }
+    }
+
+    // ---- Ensure video plays & fallback handling ----
+    function ensureVideoPlays() {
+        if (!videoEl) return;
+        const attemptPlay = async () => {
+            try {
+                if (videoEl.paused) {
+                    await videoEl.play();
+                }
+                // If play succeeded, hide fallback
+                if (videoFallback) videoFallback.style.display = 'none';
+            } catch (e) {
+                // Autoplay not allowed: show fallback image
+                if (videoFallback) videoFallback.style.display = '';
+                console.log("Autoplay waiting for interaction");
+            }
+        };
+        attemptPlay();
+
+        document.addEventListener('touchstart', function() {
+            attemptPlay();
+        }, { once: true });
+
+        document.addEventListener('click', function() {
+            attemptPlay();
+        }, { once: true });
+
+        // If the video errors (corrupt or unsupported format), show fallback
+        videoEl.addEventListener('error', () => {
+            if (videoFallback) videoFallback.style.display = '';
+        });
+    }
+
+    // ---- Initialization (safe) ----
+    async function init() {
+        startTimeTicker();
+        bindListeners();
+        ensureVideoPlays();
+
+        // If Firebase is enabled, initialize auth & snapshot listener
+        if (firebaseEnabled) {
+            try {
+                const modApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
+                const modAuth = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+                const modFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+
+                const app = modApp.initializeApp(firebaseConfig);
+                const authLocal = modAuth.getAuth(app);
+                const { signInAnonymously, onAuthStateChanged, signInWithCustomToken } = modAuth;
+                const { doc, onSnapshot, setDoc } = modFirestore;
+
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(authLocal, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(authLocal);
+                    }
+                } catch (e) {
+                    console.warn('[app] Firebase auth failed or not configured', e);
+                }
+
+                onAuthStateChanged(authLocal, (user) => {
+                    if (user) {
+                        currentUser = user;
+                        try {
+                            const docRef = doc(db || modFirestore.getFirestore(app), 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
+                            // Attach snapshot
+                            onSnapshot(docRef, (snap) => {
+                                if (snap && snap.exists && snap.exists()) {
+                                    const data = snap.data();
+                                    updateDisplay(data.count || 0);
+                                } else {
+                                    // create the doc if missing
+                                    setDoc(docRef, { count: 0, lastTimestamp: Date.now() }).catch(()=>{});
+                                    updateDisplay(0);
+                                }
+                            }, (err) => {
+                                console.warn('[app] snapshot error', err);
+                            });
+                        } catch (err) {
+                            console.warn('[app] setting up snapshot failed', err);
+                        }
+                    }
+                });
+            } catch (err) {
+                console.warn('[app] Firebase init failed; continuing without Firebase', err);
+                firebaseEnabled = false;
+            }
+        } else {
+            // No firebase: try to hydrate UI from local storage
+            try {
+                const localCount = Number(localStorage.getItem('devang_local_count') || 0);
+                if (localCount > 0) updateDisplay(localCount);
+            } catch (err) { /* ignore */ }
+        }
+    }
+
+    // Run init
+    try {
+        await init();
+    } catch (err) {
+        console.error('[app] init crash', err);
+    }
+})();
+</script>
 
 </body>
 </html>
