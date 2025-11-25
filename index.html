@@ -1,366 +1,296 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Devang Hair Study</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <title>Devang Hair Study</title>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tailwind (kept for visuals) -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Prata&display=swap" rel="stylesheet">
+  <!-- Fonts (kept) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Prata&display=swap" rel="stylesheet">
 
-    <style>
-        html, body {
-            touch-action: manipulation;
-            -webkit-user-select: none;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            overflow: hidden;
-            height: 100%;
-            width: 100%;
-        }
-        body { background-color: #f3f3f3; color: #111; font-family: 'Inter', sans-serif; }
-        .font-serif-title { font-family: 'Prata', serif; }
-        #count-display { transition: transform 0.15s cubic-bezier(0.175,0.885,0.32,1.275); display:inline-block; will-change:transform; }
-        .log-btn { box-shadow: 0 15px 35px -5px rgba(0,0,0,0.4); transition: transform .1s, background-color .1s; cursor:pointer; }
-        .video-wrapper { position:relative; width:100%; height:100%; background:#000; overflow:hidden; border-radius:12px; box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -1px rgba(0,0,0,.06); }
-        /* small UI for device-id export/import */
-        .device-id-ui { position: fixed; left: 12px; bottom: 12px; background: rgba(255,255,255,.9); border-radius: 8px; padding: 8px; z-index: 60; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.06); }
-        .device-id-ui button { margin-left: 6px; font-weight:600; padding:4px 8px; border-radius:6px; cursor:pointer; }
-    </style>
+  <style>
+    /* App styling (visuals preserved) */
+    html,body{
+      touch-action:manipulation;
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+      overflow:hidden;
+      height:100%;
+      width:100%;
+      margin:0;
+    }
+    body{ background:#f3f3f3; color:#111; font-family:'Inter',sans-serif; }
+    .font-serif-title{ font-family:'Prata',serif; }
+    #count-display{ transition:transform .15s cubic-bezier(.175,.885,.32,1.275); display:inline-block; will-change:transform; }
+    .log-btn{ box-shadow:0 15px 35px -5px rgba(0,0,0,.4); transition:transform .1s, background-color .1s; cursor:pointer; }
+    .video-wrapper{ position:relative; width:100%; height:100%; background:#000; overflow:hidden; border-radius:12px; box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -1px rgba(0,0,0,.06); }
+    /* small responsive safe area for iOS bottom */
+    .pb-safe{ padding-bottom:calc(env(safe-area-inset-bottom) + 12px); }
+    /* modal */
+    .hidden{ display:none !important; }
+  </style>
 </head>
 <body class="bg-stone-100">
 
 <main class="w-full h-full bg-white relative flex flex-col p-6 pb-safe sm:max-w-md sm:mx-auto sm:h-[90vh] sm:rounded-3xl sm:shadow-2xl sm:border sm:border-stone-200 sm:my-auto">
 
-    <div class="flex flex-col items-center justify-center mt-2 mb-2 flex-shrink-0 z-10">
-        <h1 class="font-serif-title text-3xl text-center text-stone-900 leading-tight mb-2">I saw Devang setting his hair</h1>
-        <div class="flex flex-col items-center">
-            <div class="flex items-baseline gap-2">
-                <span id="count-display" class="text-8xl font-thin tracking-tighter text-black leading-none select-none">--</span>
-                <span class="text-lg font-medium text-stone-400">times.</span>
-            </div>
-            <p class="text-xs text-stone-400 font-mono mt-1 uppercase tracking-widest">
-                Last incident: <span id="last-seen-timer" class="transition-colors duration-300">Waiting...</span>
-            </p>
-        </div>
+  <!-- header -->
+  <div class="flex flex-col items-center justify-center mt-2 mb-2 flex-shrink-0 z-10">
+    <h1 class="font-serif-title text-3xl text-center text-stone-900 leading-tight mb-2">I saw Devang setting his hair</h1>
+    <div class="flex flex-col items-center">
+      <div class="flex items-baseline gap-2">
+        <span id="count-display" class="text-8xl font-thin tracking-tighter text-black leading-none select-none">--</span>
+        <span class="text-lg font-medium text-stone-400">times.</span>
+      </div>
+      <p class="text-xs text-stone-400 font-mono mt-1 uppercase tracking-widest">Last incident: <span id="last-seen-timer" class="transition-colors duration-300">Waiting...</span></p>
+    </div>
+  </div>
+
+  <!-- video -->
+  <div class="flex-1 w-full flex items-center justify-center py-2 min-h-0 z-0">
+    <div class="video-wrapper aspect-square max-h-full">
+      <!-- VIDEO: sources are attached lazily to avoid heavy downloads.
+           poster uses the uploaded file path provided earlier (converted to a URL by deployment pipeline). -->
+      <video
+        id="hair-video"
+        class="w-full h-full object-cover"
+        autoplay
+        loop
+        muted
+        playsinline
+        webkit-playsinline
+        preload="metadata"
+        poster="/mnt/data/61ED4418-8ABF-48D3-B6D1-A5D9856932A4.jpeg"
+        data-src-mp4="IMG_9318.mp4"
+        aria-label="Live feed video"
+      ></video>
+
+      <div class="absolute top-4 left-4 flex gap-2 items-center bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+        <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+        <span class="text-[10px] text-white font-bold tracking-wider uppercase">Live Feed</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- controls -->
+  <div class="flex flex-col items-center justify-end mb-4 flex-shrink-0 z-20 pb-4 sm:pb-0">
+    <div class="mb-3 animate-bounce text-stone-300">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+      </svg>
     </div>
 
-    <div class="flex-1 w-full flex items-center justify-center py-2 min-h-0 z-0">
-        <div class="video-wrapper aspect-square max-h-full">
-            <!-- Video: poster set to uploaded image (local path from upload). Sources lazy-attached, not downloaded until play attempt -->
-            <video
-                id="hair-video"
-                class="w-full h-full object-cover"
-                autoplay
-                loop
-                muted
-                playsinline
-                webkit-playsinline
-                preload="metadata"
-                poster="/mnt/data/61ED4418-8ABF-48D3-B6D1-A5D9856932A4.jpeg"
-                data-src-mp4="IMG_9318.mp4"
-                aria-label="Live feed video"
-            ></video>
+    <button id="log-btn" class="log-btn w-24 h-24 bg-black rounded-full flex items-center justify-center text-white text-4xl active:scale-95">
+      <span class="pb-2 select-none">+</span>
+    </button>
 
-            <!-- Live badge -->
-            <div class="absolute top-4 left-4 flex gap-2 items-center bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
-                <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <span class="text-[10px] text-white font-bold tracking-wider uppercase">Live Feed</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="flex flex-col items-center justify-end mb-4 flex-shrink-0 z-20 pb-4 sm:pb-0">
-        <div class="mb-3 animate-bounce text-stone-300">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
-        </div>
-
-        <button id="log-btn" class="log-btn w-24 h-24 bg-black rounded-full flex items-center justify-center text-white text-4xl active:scale-95">
-            <span class="pb-2 select-none">+</span>
-        </button>
-
-        <div class="mt-4 text-[9px] text-stone-300 uppercase tracking-[0.3em] font-bold select-none">Department of Vanity</div>
-    </div>
-
+    <div class="mt-4 text-[9px] text-stone-300 uppercase tracking-[0.3em] font-bold select-none">Department of Vanity</div>
+  </div>
 </main>
 
+<!-- modal -->
 <div id="stalker-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-white/95 backdrop-blur-md p-6">
-    <div class="w-full max-w-xs text-center p-6 border-2 border-black bg-white shadow-xl">
-        <div class="text-6xl mb-4">🛑</div>
-        <h3 class="font-serif-title text-2xl text-black mb-3">Looks like you're stalking Devang?</h3>
-        <p class="text-xs font-mono text-stone-500 mb-6 leading-relaxed">EXCESSIVE LOGGING DETECTED. PLEASE MAINTAIN PROFESSIONAL DISTANCE FROM THE SUBJECT.</p>
-        <button id="modal-close" class="w-full py-4 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-colors">I Understand</button>
-    </div>
-</div>
-
-<!-- small device-id export/import UI so you can link browsers manually (no secret tracking) -->
-<div class="device-id-ui" id="device-ui" title="Use this to copy/import device ID if you want cross-browser sync">
-    <div style="display:flex;align-items:center;gap:6px;">
-        <span id="device-id-display">id: —</span>
-        <button id="copy-device">copy</button>
-        <button id="import-device">import</button>
-    </div>
+  <div class="w-full max-w-xs text-center p-6 border-2 border-black bg-white shadow-xl">
+    <div class="text-6xl mb-4">🛑</div>
+    <h3 class="font-serif-title text-2xl text-black mb-3">Looks like you're stalking Devang?</h3>
+    <p class="text-xs font-mono text-stone-500 mb-6 leading-relaxed">EXCESSIVE LOGGING DETECTED. PLEASE MAINTAIN PROFESSIONAL DISTANCE FROM THE SUBJECT.</p>
+    <button id="modal-close" class="w-full py-4 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-colors">I Understand</button>
+  </div>
 </div>
 
 <script type="module">
-(async () => {
-    // === CONFIG GUARDS ===
-    let firebaseEnabled = false;
-    let firebaseConfig = null;
+/*
+  FINAL: No Firebase, lightweight, reliable, fast.
+  - Video sources are attached only on user interaction or first autoplay success.
+  - Local count stored in localStorage and synced across same-origin tabs via BroadcastChannel.
+  - Robust defensive checks to prevent runtime crashes.
+*/
+
+(() => {
+  // DOM references (script at end so DOM exists)
+  const videoEl = document.getElementById('hair-video');
+  const btn = document.getElementById('log-btn');
+  const countEl = document.getElementById('count-display');
+  const lastSeenEl = document.getElementById('last-seen-timer');
+  const modal = document.getElementById('stalker-modal');
+  const modalCloseBtn = document.getElementById('modal-close');
+
+  // keys
+  const LOCAL_COUNT_KEY = 'devang_local_count_v2';
+  const LAST_CLICK_KEY = 'devang_last_click_ts_v2';
+  const STORAGE_EVENTS = 'devang_events_v2';
+
+  // state
+  let lazyLoaded = false;
+  let ticker = null;
+
+  // helper: safe display
+  function updateDisplay(val) {
+    if (!countEl) return;
     try {
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            firebaseConfig = (typeof __firebase_config === 'string') ? JSON.parse(__firebase_config) : __firebase_config;
-            firebaseEnabled = true;
-        }
-    } catch(e){ console.warn('[app] firebase parse fail', e); firebaseEnabled = false; }
+      countEl.style.transform = 'scale(1.2)';
+      setTimeout(() => { countEl.style.transform = 'scale(1)'; }, 150);
+      countEl.innerText = (typeof val === 'number') ? val.toLocaleString('en-US', { minimumIntegerDigits: 2 }) : String(val);
+    } catch (e) { /* ignore */ }
+  }
 
-    // === DOM ===
-    const countEl = document.getElementById('count-display');
-    const btn = document.getElementById('log-btn');
-    const modal = document.getElementById('stalker-modal');
-    const modalCloseBtn = document.getElementById('modal-close');
-    const lastSeenEl = document.getElementById('last-seen-timer');
-    const videoEl = document.getElementById('hair-video');
-    const deviceIdDisplay = document.getElementById('device-id-display');
-    const copyBtn = document.getElementById('copy-device');
-    const importBtn = document.getElementById('import-device');
-
-    // === CONSTANTS ===
-    const STALKER_THRESHOLD = 3;
-    const TIME_WINDOW = 2 * 60 * 1000;
-    const STORAGE_KEY = 'devang_hair_events';
-    const LAST_CLICK_KEY = 'devang_last_click_ts';
-    const LOCAL_COUNT_KEY = 'devang_local_count';
-    const DEVICE_ID_KEY = 'devang_device_id';
-    const appId = (typeof __app_id !== 'undefined' && __app_id) ? __app_id : 'default-app-id';
-
-    // === STATE ===
-    let timeInterval = null;
-    let lazyLoaded = false;
-    let firebaseDb = null;
-
-    // === Helpers ===
-    function updateDisplay(val) {
-        if (!countEl) return;
-        try {
-            countEl.style.transform = 'scale(1.2)';
-            countEl.style.color = '#000';
-            setTimeout(()=> countEl.style.transform = 'scale(1)', 150);
-            countEl.innerText = (typeof val === 'number') ? val.toLocaleString('en-US', { minimumIntegerDigits: 2 }) : String(val);
-        } catch(e){}
-    }
-
-    function startTimeTicker() {
-        if (timeInterval) clearInterval(timeInterval);
-        timeInterval = setInterval(()=> {
-            try {
-                const lastTs = localStorage.getItem(LAST_CLICK_KEY);
-                if (!lastTs) { if (lastSeenEl) lastSeenEl.innerText = "Waiting for input..."; return; }
-                const diff = Math.floor((Date.now() - parseInt(lastTs,10)) / 1000);
-                if (diff < 5) lastSeenEl.innerText = "Just now";
-                else if (diff < 60) lastSeenEl.innerText = `${diff}s ago`;
-                else lastSeenEl.innerText = `${Math.floor(diff/60)}m ago`;
-            } catch(e){}
-        }, 1000);
-    }
-
-    function isStalking() {
-        try {
-            const now = Date.now();
-            let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            history = history.filter(ts => now - ts < TIME_WINDOW);
-            history.push(now);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-            if (history.length > STALKER_THRESHOLD) { localStorage.setItem(STORAGE_KEY, '[]'); return true; }
-        } catch(e){ console.warn(e); }
-        return false;
-    }
-
-    function showModal(){ if(!modal) return; modal.classList.remove('hidden'); modal.classList.add('flex'); }
-    function closeModal(e){ if(e && e.cancelable) e.preventDefault(); if(!modal) return; modal.classList.add('hidden'); modal.classList.remove('flex'); }
-
-    // === Device ID (not secret tracking): generate or show. user can copy & paste to link browsers manually ===
-    function generateDeviceId() {
-        // simple UUIDv4
-        return 'dev-' + ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-        );
-    }
-    function getDeviceId() {
-        let id = localStorage.getItem(DEVICE_ID_KEY);
-        if (!id) { id = generateDeviceId(); localStorage.setItem(DEVICE_ID_KEY, id); }
-        deviceIdDisplay.innerText = 'id: ' + id.slice(0,12);
-        return id;
-    }
-
-    copyBtn.addEventListener('click', async () => {
-        const id = getDeviceId();
-        try { await navigator.clipboard.writeText(id); alert('device id copied'); } catch(e) { prompt('copy this device id', id); }
-    });
-
-    importBtn.addEventListener('click', async () => {
-        const val = prompt('Paste device id to import (will overwrite current device id)');
-        if (!val) return;
-        try { localStorage.setItem(DEVICE_ID_KEY, val); alert('imported. refresh other tabs to sync'); getDeviceId(); } catch(e){ alert('import failed'); }
-    });
-
-    // === Video lazy load & play ===
-    function attachVideoSources() {
-        if (!videoEl || lazyLoaded) return;
-        const mp4 = videoEl.getAttribute('data-src-mp4');
-        if (mp4) {
-            const s = document.createElement('source');
-            s.src = mp4;
-            s.type = 'video/mp4';
-            videoEl.appendChild(s);
-        }
-        try { videoEl.load(); } catch(e){}
-        lazyLoaded = true;
-    }
-
-    async function attemptPlayVideo() {
-        if (!videoEl) return false;
-        if (!lazyLoaded) attachVideoSources();
-        try {
-            videoEl.muted = true;
-            await videoEl.play();
-            return true;
-        } catch(e) {
-            return false;
-        }
-    }
-
-    function onFirstUserInteraction() {
-        document.removeEventListener('touchstart', onFirstUserInteraction);
-        document.removeEventListener('click', onFirstUserInteraction);
-        attachVideoSources();
-        videoEl.play().catch(()=>{});
-    }
-
-    // === Logging action ===
-    async function handleLog(e) {
-        if (e && e.cancelable) e.preventDefault();
-        if (btn) { btn.classList.add('scale-90','bg-stone-800'); setTimeout(()=>btn.classList.remove('scale-90','bg-stone-800'),100); }
-        try { localStorage.setItem(LAST_CLICK_KEY, Date.now().toString()); if(lastSeenEl){ lastSeenEl.innerText='Just now'; lastSeenEl.classList.add('text-red-600','font-bold'); setTimeout(()=> lastSeenEl.classList.remove('text-red-600','font-bold'),500);} } catch(e){}
-        if (isStalking()) showModal();
-
-        // optimistic local increment
-        try {
-            let curr = Number(localStorage.getItem(LOCAL_COUNT_KEY) || 0);
-            curr = curr + 1;
-            localStorage.setItem(LOCAL_COUNT_KEY, String(curr));
-            updateDisplay(curr);
-        } catch(e){}
-
-        // If firebase is configured we try to push the update to server for cross-browser sync
-        if (firebaseEnabled) {
-            try {
-                const modFire = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
-                const modApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
-                const app = modApp.initializeApp(firebaseConfig);
-                const remoteDb = modFire.getFirestore(app);
-                const { doc, updateDoc, setDoc, increment } = modFire;
-                const docRef = doc(remoteDb, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
-                try {
-                    await updateDoc(docRef, { count: increment(1), lastTimestamp: Date.now() });
-                } catch(err) {
-                    await setDoc(docRef, { count: 1, lastTimestamp: Date.now() }, { merge: true });
-                }
-            } catch(err) {
-                console.warn('[app] firebase update failed', err);
-            }
-        }
-    }
-
-    // === Bind listeners ===
-    function bindListeners() {
-        if (btn) {
-            btn.addEventListener('touchstart', handleLog, { passive:false });
-            btn.addEventListener('click', handleLog);
-        }
-        if (modalCloseBtn) {
-            modalCloseBtn.addEventListener('touchstart', closeModal, { passive:false });
-            modalCloseBtn.addEventListener('click', closeModal);
-        }
-    }
-
-    // === Hydrate from local ===
-    function hydrateFromLocal() {
-        try {
-            const localCount = Number(localStorage.getItem(LOCAL_COUNT_KEY) || 0);
-            if (localCount > 0) updateDisplay(localCount);
-        } catch(e){}
-    }
-
-    // === Optional: Firebase real-time snapshot (only if config present) ===
-    async function setupFirebaseRealtime() {
-        if (!firebaseEnabled) return;
-        try {
-            const modApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
-            const modAuth = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
-            const modFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
-
-            const app = modApp.initializeApp(firebaseConfig);
-            const auth = modAuth.getAuth(app);
-            const { signInAnonymously, onAuthStateChanged } = modAuth;
-            const { doc, onSnapshot, setDoc, getFirestore } = modFirestore;
-            const remoteDb = getFirestore(app);
-
-            try { await signInAnonymously(auth); } catch(e){ console.warn('[app] firebase auth', e); }
-
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    try {
-                        const docRef = doc(remoteDb, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
-                        onSnapshot(docRef, (snap) => {
-                            if (snap && snap.exists && snap.exists()) {
-                                const d = snap.data();
-                                if (typeof d.count === 'number') {
-                                    // update UI and also persist locally
-                                    updateDisplay(d.count || 0);
-                                    localStorage.setItem(LOCAL_COUNT_KEY, String(d.count || 0));
-                                }
-                            } else {
-                                setDoc(docRef, { count: 0, lastTimestamp: Date.now() }).catch(()=>{});
-                                updateDisplay(0);
-                            }
-                        });
-                    } catch(err){ console.warn('[app] firebase snapshot', err); }
-                }
-            });
-
-        } catch(err) {
-            console.warn('[app] firebase setup failed', err);
-        }
-    }
-
-    // === Init ===
+  // hydrates UI from localStorage
+  function hydrate() {
     try {
-        getDeviceId();
-        startTimeTicker();
-        bindListeners();
-        hydrateFromLocal();
+      const local = Number(localStorage.getItem(LOCAL_COUNT_KEY) || 0);
+      updateDisplay(local > 0 ? local : 0);
+      const ts = localStorage.getItem(LAST_CLICK_KEY);
+      if (!ts) lastSeenEl.innerText = 'Waiting for input...';
+      else {
+        const diff = Math.floor((Date.now() - parseInt(ts,10))/1000);
+        if (diff < 5) lastSeenEl.innerText = 'Just now';
+        else if (diff < 60) lastSeenEl.innerText = `${diff}s ago`;
+        else lastSeenEl.innerText = `${Math.floor(diff/60)}m ago`;
+      }
+    } catch(e){}
+  }
 
-        // Try autoplay lightly - won't fetch big file until sources attached
-        const played = await attemptPlayVideo();
-        if (!played) {
-            // wait for first user interaction to attach and play
-            document.addEventListener('touchstart', onFirstUserInteraction, { once: true });
-            document.addEventListener('click', onFirstUserInteraction, { once: true });
-        }
+  // ticker updates "last seen"
+  function startTicker() {
+    if (ticker) clearInterval(ticker);
+    ticker = setInterval(() => {
+      try {
+        const ts = localStorage.getItem(LAST_CLICK_KEY);
+        if (!ts) { lastSeenEl.innerText = 'Waiting for input...'; return; }
+        const diff = Math.floor((Date.now() - parseInt(ts,10))/1000);
+        if (diff < 5) lastSeenEl.innerText = 'Just now';
+        else if (diff < 60) lastSeenEl.innerText = `${diff}s ago`;
+        else lastSeenEl.innerText = `${Math.floor(diff/60)}m ago`;
+      } catch(e){}
+    }, 1000);
+  }
 
-        // If firebase config present, set up realtime
-        if (firebaseEnabled) await setupFirebaseRealtime();
-    } catch (err) {
-        console.error('[app] init error', err);
+  // attach video source(s) lazily (only when needed)
+  function attachVideoSources() {
+    if (!videoEl || lazyLoaded) return;
+    const mp4 = videoEl.getAttribute('data-src-mp4');
+    if (mp4) {
+      const src = document.createElement('source');
+      src.src = mp4;
+      src.type = 'video/mp4';
+      videoEl.appendChild(src);
     }
+    // force the browser to re-evaluate sources
+    try { videoEl.load(); } catch(e){}
+    lazyLoaded = true;
+  }
+
+  // attempt autoplay (won't fetch until sources attached, because preload=metadata)
+  async function attemptPlay() {
+    if (!videoEl) return false;
+    if (!lazyLoaded) attachVideoSources();
+    try {
+      videoEl.muted = true; // improves autoplay success on many browsers
+      await videoEl.play();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // user-first interaction play
+  function onFirstInteraction() {
+    document.removeEventListener('touchstart', onFirstInteraction);
+    document.removeEventListener('click', onFirstInteraction);
+    attachVideoSources();
+    videoEl.play().catch(()=>{});
+  }
+
+  // stalking guard
+  function isStalking() {
+    try {
+      const now = Date.now();
+      let events = JSON.parse(localStorage.getItem(STORAGE_EVENTS) || '[]');
+      events = events.filter(ts => now - ts < (2*60*1000)); // 2 minutes
+      events.push(now);
+      localStorage.setItem(STORAGE_EVENTS, JSON.stringify(events));
+      if (events.length > 3) { localStorage.setItem(STORAGE_EVENTS, '[]'); return true; }
+    } catch (e) { console.warn(e); }
+    return false;
+  }
+
+  // broadcast channel for same-origin tabs (fast local sync)
+  let bc = null;
+  try {
+    if ('BroadcastChannel' in self) { bc = new BroadcastChannel('devang_channel_v2'); bc.onmessage = (ev) => {
+      if (ev.data && ev.data.type === 'update_count') {
+        localStorage.setItem(LOCAL_COUNT_KEY, String(ev.data.count));
+        updateDisplay(ev.data.count);
+      }
+      if (ev.data && ev.data.type === 'last_click') {
+        localStorage.setItem(LAST_CLICK_KEY, String(ev.data.ts));
+      }
+    };}
+  } catch(e){ bc = null; }
+
+  // handle log action
+  async function handleLog(e) {
+    if (e && e.cancelable) e.preventDefault();
+
+    // visual press feedback
+    if (btn) { btn.classList.add('scale-90','bg-stone-800'); setTimeout(()=>btn.classList.remove('scale-90','bg-stone-800'),100); }
+
+    // update last-seen
+    try {
+      localStorage.setItem(LAST_CLICK_KEY, Date.now().toString());
+      if (lastSeenEl) { lastSeenEl.innerText = 'Just now'; lastSeenEl.classList.add('text-red-600','font-bold'); setTimeout(()=>lastSeenEl.classList.remove('text-red-600','font-bold'),500); }
+    } catch(e){}
+
+    if (isStalking()) {
+      if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    }
+
+    // update local count optimistic
+    try {
+      const curr = Number(localStorage.getItem(LOCAL_COUNT_KEY) || 0) + 1;
+      localStorage.setItem(LOCAL_COUNT_KEY, String(curr));
+      updateDisplay(curr);
+      // broadcast to other same-origin tabs
+      if (bc) bc.postMessage({ type: 'update_count', count: curr });
+      // also broadcast last click
+      if (bc) bc.postMessage({ type: 'last_click', ts: Date.now() });
+    } catch(e){}
+  }
+
+  // bind events safely
+  function bind() {
+    try {
+      if (btn) { btn.addEventListener('touchstart', handleLog, { passive:false }); btn.addEventListener('click', handleLog); }
+      if (modalCloseBtn) { modalCloseBtn.addEventListener('click', (e)=>{ if (e && e.cancelable) e.preventDefault(); modal.classList.add('hidden'); modal.classList.remove('flex'); }); }
+      // video interaction: try autoplay then fallback to user touch/click
+      attemptPlay().then(success => {
+        if (!success) {
+          // wait for first user gesture to attach and play
+          document.addEventListener('touchstart', onFirstInteraction, { once: true });
+          document.addEventListener('click', onFirstInteraction, { once: true });
+        }
+      });
+    } catch(e){ console.warn(e); }
+  }
+
+  // init
+  try {
+    hydrate();
+    startTicker();
+    bind();
+    // keep UI resilient: if video errors, simply show poster; no crash
+    if (videoEl) videoEl.addEventListener('error', ()=>{ /* silent fallback to poster */ });
+    // If BroadcastChannel not available, we still work with localStorage only
+  } catch(e){
+    console.error('[app] init error', e);
+  }
+
 })();
 </script>
 
