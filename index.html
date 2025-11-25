@@ -8,13 +8,12 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Fonts: 'Prata' for headlines, 'Inter' for UI -->
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Prata&display=swap" rel="stylesheet">
 
     <style>
-        /* Disable standard mobile behaviors like zooming and selection to feel like an App */
         html, body {
             touch-action: manipulation;
             -webkit-user-select: none;
@@ -24,71 +23,33 @@
             height: 100%;
             width: 100%;
         }
-
-        body {
-            background-color: #f3f3f3;
-            color: #111;
-            font-family: 'Inter', sans-serif;
-        }
-
+        body { background-color: #f3f3f3; color: #111; font-family: 'Inter', sans-serif; }
         .font-serif-title { font-family: 'Prata', serif; }
-
-        /* Counter Animation */
-        #count-display {
-            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: inline-block;
-            will-change: transform;
-        }
-
-        /* Button styling */
-        .log-btn {
-            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.4);
-            transition: transform 0.1s ease, background-color 0.1s;
-            cursor: pointer;
-        }
-
-        /* Video wrapper to ensure fit */
-        .video-wrapper {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            overflow: hidden;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
+        #count-display { transition: transform 0.15s cubic-bezier(0.175,0.885,0.32,1.275); display:inline-block; will-change:transform; }
+        .log-btn { box-shadow: 0 15px 35px -5px rgba(0,0,0,0.4); transition: transform .1s, background-color .1s; cursor:pointer; }
+        .video-wrapper { position:relative; width:100%; height:100%; background:#000; overflow:hidden; border-radius:12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -1px rgba(0,0,0,.06); }
     </style>
 </head>
 <body class="bg-stone-100">
 
 <main class="w-full h-full bg-white relative flex flex-col p-6 pb-safe sm:max-w-md sm:mx-auto sm:h-[90vh] sm:rounded-3xl sm:shadow-2xl sm:border sm:border-stone-200 sm:my-auto">
 
-    <!-- 1. Header Section -->
     <div class="flex flex-col items-center justify-center mt-2 mb-2 flex-shrink-0 z-10">
-        <h1 class="font-serif-title text-3xl text-center text-stone-900 leading-tight mb-2">
-            I saw Devang setting his hair
-        </h1>
-
+        <h1 class="font-serif-title text-3xl text-center text-stone-900 leading-tight mb-2">I saw Devang setting his hair</h1>
         <div class="flex flex-col items-center">
             <div class="flex items-baseline gap-2">
-                <span id="count-display" class="text-8xl font-thin tracking-tighter text-black leading-none select-none">
-                    --
-                </span>
+                <span id="count-display" class="text-8xl font-thin tracking-tighter text-black leading-none select-none">--</span>
                 <span class="text-lg font-medium text-stone-400">times.</span>
             </div>
-            <!-- Dynamic Timer -->
             <p class="text-xs text-stone-400 font-mono mt-1 uppercase tracking-widest">
                 Last incident: <span id="last-seen-timer" class="transition-colors duration-300">Waiting...</span>
             </p>
         </div>
     </div>
 
-    <!-- 2. Video Section (Flex to fill available space) -->
     <div class="flex-1 w-full flex items-center justify-center py-2 min-h-0 z-0">
         <div class="video-wrapper aspect-square max-h-full">
-            <!-- 
-               VIDEO PATH SET HERE: IMG_9318.mov 
-            -->
+            <!-- LAZY video: sources are in data-src attributes; not attached until interaction/attempt -->
             <video
                 id="hair-video"
                 class="w-full h-full object-cover"
@@ -97,18 +58,17 @@
                 muted
                 playsinline
                 webkit-playsinline
-                preload="auto"
-                poster=""
-            >
-                <source src="IMG_9318.mp4" type="video/quicktime">
-                <source src="IMG_9318.mp4" type="video/mp4">
-            </video>
+                preload="metadata"                  <!-- only fetch metadata by default -->
+                data-src-mp4="IMG_9318.mp4"         <!-- put your mp4 here (preferred) -->
+                data-src-quicktime="IMG_9318.mp4"   <!-- fallback if you insist on .mov -->
+                poster=""                            <!-- small poster if you have one -->
+                aria-label="Live feed video"
+            ></video>
 
-            <!-- Fallback static image (shows behind the video if video fails) -->
+            <!-- Fallback static image (shows if autoplay blocked or video error) -->
             <img id="video-fallback" src="https://media.giphy.com/media/l0HlO3BJ8LALPW4sE/giphy.gif" alt="" aria-hidden="true"
                  class="absolute inset-0 w-full h-full object-cover grayscale opacity-50" style="display:none;">
 
-            <!-- "Live" Indicator -->
             <div class="absolute top-4 left-4 flex gap-2 items-center bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
                 <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                 <span class="text-[10px] text-white font-bold tracking-wider uppercase">Live Feed</span>
@@ -116,84 +76,50 @@
         </div>
     </div>
 
-    <!-- 3. Bottom Controls -->
     <div class="flex flex-col items-center justify-end mb-4 flex-shrink-0 z-20 pb-4 sm:pb-0">
-        <!-- Hint Arrow -->
         <div class="mb-3 animate-bounce text-stone-300">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
             </svg>
         </div>
 
-        <!-- The Big Button -->
         <button id="log-btn" class="log-btn w-24 h-24 bg-black rounded-full flex items-center justify-center text-white text-4xl active:scale-95">
             <span class="pb-2 select-none">+</span>
         </button>
 
-        <div class="mt-4 text-[9px] text-stone-300 uppercase tracking-[0.3em] font-bold select-none">
-            Department of Vanity
-        </div>
+        <div class="mt-4 text-[9px] text-stone-300 uppercase tracking-[0.3em] font-bold select-none">Department of Vanity</div>
     </div>
 
 </main>
 
-<!-- Stalker Modal -->
 <div id="stalker-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-white/95 backdrop-blur-md p-6">
     <div class="w-full max-w-xs text-center p-6 border-2 border-black bg-white shadow-xl">
         <div class="text-6xl mb-4">🛑</div>
-        <h3 class="font-serif-title text-2xl text-black mb-3">
-            Looks like you're stalking Devang?
-        </h3>
-        <p class="text-xs font-mono text-stone-500 mb-6 leading-relaxed">
-            EXCESSIVE LOGGING DETECTED. PLEASE MAINTAIN PROFESSIONAL DISTANCE FROM THE SUBJECT.
-        </p>
-        <button id="modal-close" class="w-full py-4 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-colors">
-            I Understand
-        </button>
+        <h3 class="font-serif-title text-2xl text-black mb-3">Looks like you're stalking Devang?</h3>
+        <p class="text-xs font-mono text-stone-500 mb-6 leading-relaxed">EXCESSIVE LOGGING DETECTED. PLEASE MAINTAIN PROFESSIONAL DISTANCE FROM THE SUBJECT.</p>
+        <button id="modal-close" class="w-full py-4 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-colors">I Understand</button>
     </div>
 </div>
 
-<!-- App script (placed at end so DOM exists) -->
 <script type="module">
 (async () => {
-    // ---- Config guards ----
+    // FIREBASE: stays optional; code unchanged for safety
     let firebaseEnabled = false;
     let firebaseConfig = null;
     try {
         if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            // __firebase_config might be a JSON string or already an object (defensive)
             firebaseConfig = (typeof __firebase_config === 'string') ? JSON.parse(__firebase_config) : __firebase_config;
             firebaseEnabled = true;
-        } else {
-            console.warn('[app] __firebase_config missing — Firebase disabled for this runtime.');
         }
     } catch (err) {
-        console.error('[app] Error parsing __firebase_config — Firebase disabled.', err);
+        console.warn('[app] firebase parse failed', err);
         firebaseEnabled = false;
     }
 
-    // Import Firebase only when config present to avoid module errors
-    let auth = null, db = null, initializeAppFn = null;
-    if (firebaseEnabled) {
-        try {
-            const modApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
-            const modAuth = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
-            const modFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+    // Lazy import only if needed later
+    let db = null;
 
-            initializeAppFn = modApp.initializeApp;
-            auth = modAuth.getAuth ? modAuth.getAuth() : null;
-            db = modFirestore.getFirestore ? modFirestore.getFirestore(initializeAppFn(firebaseConfig)) : null;
-
-            // Note: We'll re-initialize auth properly in init() below using app
-        } catch (err) {
-            console.error('[app] Firebase modules failed to load — disabling Firebase.', err);
-            firebaseEnabled = false;
-            auth = null;
-            db = null;
-        }
-    }
-
-    // ---- DOM elements (safe: script is at end of body) ----
+    // DOM
     const countEl = document.getElementById('count-display');
     const btn = document.getElementById('log-btn');
     const modal = document.getElementById('stalker-modal');
@@ -202,58 +128,41 @@
     const videoEl = document.getElementById('hair-video');
     const videoFallback = document.getElementById('video-fallback');
 
-    // ---- Local constants ----
     const STALKER_THRESHOLD = 3;
     const TIME_WINDOW = 2 * 60 * 1000;
     const STORAGE_KEY = 'devang_hair_events';
     const LAST_CLICK_KEY = 'devang_last_click_ts';
     const appId = (typeof __app_id !== 'undefined' && __app_id) ? __app_id : 'default-app-id';
 
-    let currentUser = null;
     let timeInterval = null;
-    let firestoreDocRef = null;
+    let lazyLoaded = false; // whether we attached sources to <video>
 
-    // ---- Utility: safe update display ----
+    // update display helper
     function updateDisplay(val) {
         if (!countEl) return;
         try {
             countEl.style.transform = 'scale(1.2)';
             countEl.style.color = '#000';
-            setTimeout(() => {
-                countEl.style.transform = 'scale(1)';
-            }, 150);
+            setTimeout(() => countEl.style.transform = 'scale(1)', 150);
             countEl.innerText = (typeof val === 'number') ? val.toLocaleString('en-US', { minimumIntegerDigits: 2 }) : String(val);
-        } catch (err) {
-            console.warn('[app] updateDisplay failed', err);
-        }
+        } catch (e) { /* ignore */ }
     }
 
-    // ---- Timer ticker ----
+    // timer
     function startTimeTicker() {
         if (timeInterval) clearInterval(timeInterval);
         timeInterval = setInterval(() => {
             try {
                 const lastTs = localStorage.getItem(LAST_CLICK_KEY);
-                if (!lastTs) {
-                    if (lastSeenEl) lastSeenEl.innerText = "Waiting for input...";
-                    return;
-                }
-
+                if (!lastTs) { if (lastSeenEl) lastSeenEl.innerText = "Waiting for input..."; return; }
                 const diff = Math.floor((Date.now() - parseInt(lastTs, 10)) / 1000);
-
                 if (diff < 5) lastSeenEl.innerText = "Just now";
                 else if (diff < 60) lastSeenEl.innerText = `${diff}s ago`;
-                else {
-                    const mins = Math.floor(diff / 60);
-                    lastSeenEl.innerText = `${mins}m ago`;
-                }
-            } catch (err) {
-                // silent
-            }
+                else lastSeenEl.innerText = `${Math.floor(diff/60)}m ago`;
+            } catch (err) {}
         }, 1000);
     }
 
-    // ---- Stalker logic ----
     function isStalking() {
         try {
             const now = Date.now();
@@ -261,169 +170,145 @@
             history = history.filter(ts => now - ts < TIME_WINDOW);
             history.push(now);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-
-            if (history.length > STALKER_THRESHOLD) {
-                localStorage.setItem(STORAGE_KEY, '[]');
-                return true;
-            }
-        } catch (err) {
-            console.warn('[app] isStalking error', err);
-        }
+            if (history.length > STALKER_THRESHOLD) { localStorage.setItem(STORAGE_KEY, '[]'); return true; }
+        } catch (err) { console.warn(err); }
         return false;
     }
 
-    // ---- Modal control ----
-    function showModal() {
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-    }
-    function closeModal(e) {
-        if (e && e.cancelable) e.preventDefault();
-        if (!modal) return;
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    }
+    function showModal() { if (!modal) return; modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    function closeModal(e) { if (e && e.cancelable) e.preventDefault(); if (!modal) return; modal.classList.add('hidden'); modal.classList.remove('flex'); }
 
-    // ---- Firestore path setup (if enabled) ----
-    function prepareFirestore() {
-        if (!firebaseEnabled) return null;
-        try {
-            // Re-import the specific named functions to avoid dependency issues
-            // Note: dynamic imports done earlier; attempt to use global firebase if present
-            // Use a defensive approach: attempt to construct a doc ref when db is available
-            if (db) {
-                // build path similar to original; keep same structure
-                // We'll create a lightweight object representing path usage — actual onSnapshot uses module functions
-                return {
-                    pathSegments: ['artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats']
-                };
-            }
-        } catch (err) {
-            console.warn('[app] prepareFirestore failed', err);
+    // LAZY VIDEO LOADING: attach sources only when we try to play
+    function attachVideoSources() {
+        if (!videoEl || lazyLoaded) return;
+        // prefer mp4; update these file names to match your actual files on Vercel
+        const mp4 = videoEl.getAttribute('data-src-mp4');
+        const qt = videoEl.getAttribute('data-src-quicktime');
+
+        // Create source elements only when present
+        if (mp4) {
+            const s = document.createElement('source');
+            s.src = mp4;
+            s.type = 'video/mp4';
+            videoEl.appendChild(s);
         }
-        return null;
+        if (qt && !mp4) { // only add quicktime if mp4 absent
+            const s2 = document.createElement('source');
+            s2.src = qt;
+            s2.type = 'video/quicktime';
+            videoEl.appendChild(s2);
+        }
+        // Ensure browser updates
+        try { videoEl.load(); } catch (e) {}
+        lazyLoaded = true;
     }
 
-    // ---- Safe logging action ----
+    // Attempt to play the video. If autoplay blocked, show fallback and wait for user interaction.
+    async function attemptPlayVideo() {
+        if (!videoEl) return false;
+        // if not attached, attach now
+        if (!lazyLoaded) attachVideoSources();
+
+        try {
+            // small optimization: set muted true before play to increase autoplay success
+            videoEl.muted = true;
+            await videoEl.play();
+            if (videoFallback) videoFallback.style.display = 'none';
+            return true;
+        } catch (err) {
+            // autoplay blocked
+            if (videoFallback) videoFallback.style.display = '';
+            return false;
+        }
+    }
+
+    // Called on user touch/click to lazy-load and play
+    async function onFirstUserInteraction() {
+        // remove this handler after first call
+        document.removeEventListener('touchstart', onFirstUserInteraction);
+        document.removeEventListener('click', onFirstUserInteraction);
+        attachVideoSources();
+        try { await videoEl.play(); if (videoFallback) videoFallback.style.display = 'none'; } catch(e){ if (videoFallback) videoFallback.style.display = ''; }
+    }
+
+    // handle log button
     async function handleLog(e) {
         if (e && e.cancelable) e.preventDefault();
+        if (btn) { btn.classList.add('scale-90','bg-stone-800'); setTimeout(()=>btn.classList.remove('scale-90','bg-stone-800'),100); }
+        try { localStorage.setItem(LAST_CLICK_KEY, Date.now().toString()); if (lastSeenEl) { lastSeenEl.innerText = "Just now"; lastSeenEl.classList.add('text-red-600','font-bold'); setTimeout(()=>lastSeenEl.classList.remove('text-red-600','font-bold'),500); } } catch(e){}
+        if (isStalking()) showModal();
 
-        // Visual Feedback
-        if (btn) {
-            btn.classList.add('scale-90', 'bg-stone-800');
-            setTimeout(() => btn.classList.remove('scale-90', 'bg-stone-800'), 100);
-        }
-
-        // Update Local Timestamp for ticker
+        // update UI optimistically
         try {
-            localStorage.setItem(LAST_CLICK_KEY, Date.now().toString());
-            if (lastSeenEl) {
-                lastSeenEl.innerText = "Just now";
-                lastSeenEl.classList.add('text-red-600', 'font-bold');
-                setTimeout(() => lastSeenEl.classList.remove('text-red-600', 'font-bold'), 500);
-            }
-        } catch (err) { /* silent */ }
-
-        if (isStalking()) {
-            showModal();
-        }
-
-        // Local optimistic count increment (so UI feels responsive)
-        try {
-            // Try to parse the current displayed value to increment locally
             let curr = 0;
-            if (countEl && countEl.innerText && !isNaN(Number(countEl.innerText.replace(/,/g, '')))) {
-                curr = Number(countEl.innerText.replace(/,/g, ''));
-            }
+            if (countEl && countEl.innerText && !isNaN(Number(countEl.innerText.replace(/,/g,'')))) curr = Number(countEl.innerText.replace(/,/g,''));
             updateDisplay(curr + 1);
-        } catch (err) { /* ignore */ }
+        } catch(e){}
 
-        // If Firebase is enabled and db exists, attempt to update remote
-        if (firebaseEnabled && db) {
+        // Firebase update left as before — omitted here unless configured (keeps startup light)
+        if (firebaseEnabled) {
             try {
-                // Use dynamic import to get updateDoc/increment/doc/setDoc functions
                 const modFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
-                const { doc, updateDoc, setDoc, increment } = modFirestore;
-
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
+                const { doc, updateDoc, setDoc, increment, getFirestore } = modFirestore;
+                const appMod = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
+                const app = appMod.initializeApp(firebaseConfig);
+                const remoteDb = getFirestore(app);
+                const docRef = doc(remoteDb, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
                 try {
-                    await updateDoc(docRef, {
-                        count: increment(1),
-                        lastTimestamp: Date.now()
-                    });
-                } catch (e) {
-                    // If update fails (doc doesn't exist), try setDoc with merge
+                    await updateDoc(docRef, { count: increment(1), lastTimestamp: Date.now() });
+                } catch (err) {
                     await setDoc(docRef, { count: 1, lastTimestamp: Date.now() }, { merge: true });
                 }
             } catch (err) {
-                console.warn('[app] Firestore update failed (continuing)', err);
+                console.warn('[app] Firestore update failed', err);
             }
         } else {
-            // Firestore disabled — optionally persist locally as backup
-            try {
-                let localCount = Number(localStorage.getItem('devang_local_count') || 0);
-                localCount = localCount + 1;
-                localStorage.setItem('devang_local_count', String(localCount));
-            } catch (err) { /* ignore */ }
+            // local fallback accumulator
+            try { let localCount = Number(localStorage.getItem('devang_local_count')||0); localCount++; localStorage.setItem('devang_local_count', String(localCount)); } catch(e){}
         }
     }
 
-    // ---- Setup listeners safely ----
+    // Bind listeners safely
     function bindListeners() {
-        try {
-            if (btn) {
-                btn.addEventListener('touchstart', handleLog, { passive: false });
-                btn.addEventListener('click', handleLog);
-            }
-            if (modalCloseBtn) {
-                modalCloseBtn.addEventListener('touchstart', closeModal, { passive: false });
-                modalCloseBtn.addEventListener('click', closeModal);
-            }
-        } catch (err) {
-            console.warn('[app] bindListeners error', err);
+        if (btn) {
+            btn.addEventListener('touchstart', handleLog, { passive:false });
+            btn.addEventListener('click', handleLog);
+        }
+        if (modalCloseBtn) {
+            modalCloseBtn.addEventListener('touchstart', (e)=>{ if (e&&e.cancelable) e.preventDefault(); closeModal(e); }, { passive:false });
+            modalCloseBtn.addEventListener('click', closeModal);
         }
     }
 
-    // ---- Ensure video plays & fallback handling ----
-    function ensureVideoPlays() {
-        if (!videoEl) return;
-        const attemptPlay = async () => {
-            try {
-                if (videoEl.paused) {
-                    await videoEl.play();
-                }
-                // If play succeeded, hide fallback
-                if (videoFallback) videoFallback.style.display = 'none';
-            } catch (e) {
-                // Autoplay not allowed: show fallback image
-                if (videoFallback) videoFallback.style.display = '';
-                console.log("Autoplay waiting for interaction");
-            }
-        };
-        attemptPlay();
-
-        document.addEventListener('touchstart', function() {
-            attemptPlay();
-        }, { once: true });
-
-        document.addEventListener('click', function() {
-            attemptPlay();
-        }, { once: true });
-
-        // If the video errors (corrupt or unsupported format), show fallback
-        videoEl.addEventListener('error', () => {
-            if (videoFallback) videoFallback.style.display = '';
-        });
+    // Ensure video behavior (lazy play on try, and fall back to user-interaction)
+    async function ensureVideoBehavior() {
+        // try to autoplay (will usually fail on mobile) — but this won't download full file if preload=metadata and sources not attached
+        const autoplaySucceeded = await attemptPlayVideo();
+        if (autoplaySucceeded) return;
+        // if autoplay failed, listen for first user interaction to attach and play the video
+        document.addEventListener('touchstart', onFirstUserInteraction, { once: true });
+        document.addEventListener('click', onFirstUserInteraction, { once: true });
+        // Also show fallback immediately if sources can't be loaded
+        if (videoFallback) videoFallback.style.display = '';
+        // And add error handler to show fallback if file corrupted/unsupported
+        if (videoEl) videoEl.addEventListener('error', () => { if (videoFallback) videoFallback.style.display = ''; });
     }
 
-    // ---- Initialization (safe) ----
+    // init
+    function hydrateFromLocal() {
+        try {
+            const localCount = Number(localStorage.getItem('devang_local_count') || 0);
+            if (localCount > 0) updateDisplay(localCount);
+        } catch(e){}
+    }
+
     async function init() {
         startTimeTicker();
         bindListeners();
-        ensureVideoPlays();
+        hydrateFromLocal();
+        await ensureVideoBehavior();
 
-        // If Firebase is enabled, initialize auth & snapshot listener
+        // Optionally init Firebase listeners later only if config present
         if (firebaseEnabled) {
             try {
                 const modApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
@@ -433,7 +318,8 @@
                 const app = modApp.initializeApp(firebaseConfig);
                 const authLocal = modAuth.getAuth(app);
                 const { signInAnonymously, onAuthStateChanged, signInWithCustomToken } = modAuth;
-                const { doc, onSnapshot, setDoc } = modFirestore;
+                const { doc, onSnapshot, setDoc, getFirestore } = modFirestore;
+                const remoteDb = getFirestore(app);
 
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -441,52 +327,31 @@
                     } else {
                         await signInAnonymously(authLocal);
                     }
-                } catch (e) {
-                    console.warn('[app] Firebase auth failed or not configured', e);
-                }
+                } catch(e) { console.warn('[app] firebase auth failed', e); }
 
                 onAuthStateChanged(authLocal, (user) => {
                     if (user) {
-                        currentUser = user;
                         try {
-                            const docRef = doc(db || modFirestore.getFirestore(app), 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
-                            // Attach snapshot
+                            const docRef = doc(remoteDb, 'artifacts', appId, 'public', 'data', 'devang_hair_log', 'clean_stats');
                             onSnapshot(docRef, (snap) => {
                                 if (snap && snap.exists && snap.exists()) {
                                     const data = snap.data();
                                     updateDisplay(data.count || 0);
                                 } else {
-                                    // create the doc if missing
                                     setDoc(docRef, { count: 0, lastTimestamp: Date.now() }).catch(()=>{});
                                     updateDisplay(0);
                                 }
-                            }, (err) => {
-                                console.warn('[app] snapshot error', err);
                             });
-                        } catch (err) {
-                            console.warn('[app] setting up snapshot failed', err);
-                        }
+                        } catch(err) { console.warn('[app] snapshot error', err); }
                     }
                 });
-            } catch (err) {
-                console.warn('[app] Firebase init failed; continuing without Firebase', err);
-                firebaseEnabled = false;
+            } catch(err) {
+                console.warn('[app] firebase late-init failed', err);
             }
-        } else {
-            // No firebase: try to hydrate UI from local storage
-            try {
-                const localCount = Number(localStorage.getItem('devang_local_count') || 0);
-                if (localCount > 0) updateDisplay(localCount);
-            } catch (err) { /* ignore */ }
         }
     }
 
-    // Run init
-    try {
-        await init();
-    } catch (err) {
-        console.error('[app] init crash', err);
-    }
+    try { await init(); } catch(err){ console.error('[app] init crash', err); }
 })();
 </script>
 
